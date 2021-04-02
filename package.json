@@ -4,6 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
+    "csv-parse": "^4.15.3",
     "puppeteer": "^8.0.0"
   }
 }

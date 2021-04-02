@@ -1,5 +1,6 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
+var parse = require('csv-parse')
 
 function sanitizeText(text) {
     if(text){
@@ -12,11 +13,11 @@ function sanitizeText(text) {
     return ''
 }
 
-function appendResult(results, platform, game) {
+function appendResult(results, platform, url) {
     results.map(result => {
         const text = sanitizeText(result)
         if(text){
-            const row = `${platform};${game};${text}`
+            const row = `${platform};${url};${text}`
             fs.appendFileSync('./result.csv', row+ ';\n');
         }
     })
@@ -54,7 +55,7 @@ async function getPageUrl(url, platform, game) {
         do {
             console.log(`==>${page.url()}`)
             const results = await getReviewsFromPage(page)
-            appendResult(results, platform, game)
+            appendResult(results, platform, url)
 
             hasPage = await page.$('.flipper.next > a.action')
             if (hasPage) {
@@ -69,8 +70,7 @@ async function getPageUrl(url, platform, game) {
 
 }
 
-(async () => {
-    const path = "https://www.metacritic.com/game/"
+async function getReviews(){
     const platforms = [
         'pc',
         'xbox-one',
@@ -86,18 +86,96 @@ async function getPageUrl(url, platform, game) {
     ]
 
     if (!fs.existsSync('./result.csv')) {
-        fs.appendFileSync('./result.csv', 'platform;game;review;\n');
+        fs.appendFileSync('./result.csv', 'plataforma;url;review;\n');
+    }
+    if (!fs.existsSync('./games.csv')) {
+        fs.appendFileSync('./games.csv', 'plataforma;jogo;url;nota;\n');
     }
     for (const game of games) {
         for (const platform of platforms) {
             const url = `${path}${platform}/${game}/user-reviews`
             try{
                 console.log(`=> Main ${url}`)
-                await getPageUrl(url, platform, game)
+                await getPageUrl(url, platform)
             }catch(e){
                 console.error(`${url}:${e.message}`)
             }
             
         }
     }
+}
+
+
+function persistGames(games){
+
+    for(const game of games){
+        fs.appendFileSync('./games.csv', `${game.platform};${game.title};${game.link};${game.score};\n`);
+    }
+
+}
+async function getGames(listPlatformGames){
+
+    for(platformUrl of listPlatformGames){
+
+        console.log('platformUrl', platformUrl)
+        const browser = await puppeteer.launch({
+            headless: true
+        });
+        const page = await browser.newPage();
+        const resPage = await page.goto(platformUrl);
+        const status = resPage.status()
+
+        if (status === 200) {
+            // 'table.clamp-list > tbody > tr:not([class])'
+            // title .querySelector('.title > h3').innerText
+            // score listGames[0].querySelector('.metascore_w.large').innerText
+            // link .querySelector('.clamp-image-wrap > a').href
+
+            const games = await page.evaluate(() => {
+                const listGames = document.querySelectorAll('table.clamp-list > tbody > tr:not([class])')
+                return Array.from(listGames).map(game => {
+                    const title = game.querySelector('.title > h3').innerText
+                    const score = game.querySelector('.metascore_w.large').innerText
+                    const link = game.querySelector('.clamp-image-wrap > a').href
+                    const platform = game.querySelector('.clamp-details > .platform > .data').innerText
+                    return {
+                        title,
+                        score,
+                        link,
+                        platform
+                    }
+                })
+            })
+            persistGames(games)
+
+        }
+
+    }
+    return 0
+}
+
+(async () => {
+    
+    const listPlatformGames = [
+        'https://www.metacritic.com/browse/games/release-date/available/xboxone/metascore',
+        'https://www.metacritic.com/browse/games/release-date/available/ps4/metascore',
+        'https://www.metacritic.com/browse/games/release-date/available/pc/metascore',
+    ]
+    if (!fs.existsSync('./result.csv')) {
+        fs.appendFileSync('./result.csv', 'plataforma;url;review;\n');
+    }
+    if (!fs.existsSync('./games.csv')) {
+        fs.appendFileSync('./games.csv', 'plataforma;jogo;url;nota;\n');
+    }
+    //await getGames(listPlatformGames)
+    
+    fs.readFile('./games.csv', function (err, fileData) {
+        parse(fileData, {columns: false, trim: true, header:false}, function(err, rows) {
+            gamesList = rows
+            console.log('rows', rows[0])
+        })
+    })
+    
+
+   
 })();
