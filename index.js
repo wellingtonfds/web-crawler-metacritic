@@ -2,20 +2,22 @@ const puppeteer = require('puppeteer');
 const fs = require('fs');
 
 function sanitizeText(text) {
-    if (text) {
+    if(text){
         return text
             .replace(/\s+\*/g, ' ')
             .replace(/[^\w\s]|_/g, "")
             .replace(/\s+/g, " ")
             .trim()
     }
-    return text
-
+    return ''
 }
 
 function appendResult(results) {
     results.map(result => {
-        fs.appendFileSync('./result.csv', sanitizeText(result) + ';\n');
+        const text = sanitizeText(result)
+        if(text){
+            fs.appendFileSync('./result.csv', text+ ';\n');
+        }
     })
 }
 
@@ -29,7 +31,6 @@ async function getReviewsFromPage(page) {
             } else {
                 result = review.querySelector('.review_body span') ?.innerText
             }
-
             if (result) {
                 return result
             }
@@ -81,14 +82,21 @@ async function getPageUrl(url) {
         'mortal-kombat-11-ultimate',
         'doom-eternal',
         'desperados-iii',
-
-
     ]
+
+    if (!fs.existsSync('./result.csv')) {
+        fs.appendFileSync('./result.csv', 'result;\n');
+    }
     for (const game of games) {
         for (const platform of platforms) {
             const url = `${path}${platform}/${game}/user-reviews`
-            console.log(`=> Main ${url}`)
-            await getPageUrl(url)
+            try{
+                console.log(`=> Main ${url}`)
+                await getPageUrl(url)
+            }catch(e){
+                console.error(`${url}:${e.message}`)
+            }
+            
         }
     }
 })();
