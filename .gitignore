@@ -1,0 +1,4 @@
+/node_modules
+result.csv
+yarn.lock
+/.vscode
