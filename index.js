@@ -12,11 +12,12 @@ function sanitizeText(text) {
     return ''
 }
 
-function appendResult(results) {
+function appendResult(results, platform, game) {
     results.map(result => {
         const text = sanitizeText(result)
         if(text){
-            fs.appendFileSync('./result.csv', text+ ';\n');
+            const row = `${platform};${game};${text}`
+            fs.appendFileSync('./result.csv', row+ ';\n');
         }
     })
 }
@@ -38,7 +39,7 @@ async function getReviewsFromPage(page) {
     });
 }
 
-async function getPageUrl(url) {
+async function getPageUrl(url, platform, game) {
     const browser = await puppeteer.launch({
         headless: true
     });
@@ -53,7 +54,7 @@ async function getPageUrl(url) {
         do {
             console.log(`==>${page.url()}`)
             const results = await getReviewsFromPage(page)
-            appendResult(results)
+            appendResult(results, platform, game)
 
             hasPage = await page.$('.flipper.next > a.action')
             if (hasPage) {
@@ -85,14 +86,14 @@ async function getPageUrl(url) {
     ]
 
     if (!fs.existsSync('./result.csv')) {
-        fs.appendFileSync('./result.csv', 'result;\n');
+        fs.appendFileSync('./result.csv', 'platform;game;review;\n');
     }
     for (const game of games) {
         for (const platform of platforms) {
             const url = `${path}${platform}/${game}/user-reviews`
             try{
                 console.log(`=> Main ${url}`)
-                await getPageUrl(url)
+                await getPageUrl(url, platform, game)
             }catch(e){
                 console.error(`${url}:${e.message}`)
             }
